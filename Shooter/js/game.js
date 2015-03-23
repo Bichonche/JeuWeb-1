@@ -5,6 +5,9 @@ var animFrame = window.requestAnimationFrame ||
             window.msRequestAnimationFrame     ||
             null;
 
+var tics = 0;
+var _timeToBeAlive = 30;
+
 //Canvas
 var divArena;
 var canArena;
@@ -18,7 +21,7 @@ var xBackgroundOffset = 0;
 var xBackgroundSpeed = 1;
 var backgroundWidth = 1782;
 var backgroundHeight = 600;
-var tabProjectile = new Array();
+
 
 ///////////////////////////////////
 //Keys
@@ -54,41 +57,189 @@ function keyUpHandler(event) {
 ///////////////////////////////////
 
 
+///////////////////
+// une collection de projectiles
+function ProjectileSet(tabTarget){
+  this.tabTarget = tabTarget;
+  this.tabProjectiles = new Array();
+  this.add = function (projectile) {
+    this.tabProjectiles.push(projectile);  
+  };
+  this.remove = function () {  
+      if((this.tabProjectiles.length>0) && (this.tabProjectiles[0].x >ArenaWidth || this.tabProjectiles[0].x<0)) 
+      {
+          this.tabProjectiles.shift();
+          this.remove();
+      }
+  };
+    
+    
+ this.update = function(){
+        this.remove();
+        this.tabProjectiles.map(function(obj){
+            obj.update();
+        });
+    };
+ this.clear = function(){
+    this.tabProjectiles.map(function(obj){
+         obj.clear();
+    });
+ };
+ this.draw = function(){
+    this.tabProjectiles.map(function(obj){
+        obj.draw();
+    });
+     //console.log(this.tabProjectiles.length);
+ };
+    
+};
+
 ////////////////////
 // un objet Projectile
-function Projectile(){
-    this.x = 100;
-    this.y = 100;
-    this.xSpeed = 5;
+function Projectile(x,y,speed,width,height,color){
+    this.x = x;
+    this.y = y;
+    this.xSpeed = speed;
+    this.width = width;
+    this.height = height;
+    this.color = color;
+    this.collision = function(tabOfObjects){
+        var hits = null;
+        var index;
+        for(index=0;index<tabOfObjects.length;index++){
+            if (this.x < tabOfObjects[index].x + tabOfObjects[index].width &&
+                this.x + this.width > tabOfObjects[index].x &&
+                this.y < tabOfObjects[index].y + tabOfObjects[index].height &&
+                this.height + this.y > tabOfObjects[index].y) {
+                    // collision detected!
+                    hits = tabOfObjects[index];
+                    break;
+            }
+        }
+        return hits;  
+    };
     this.draw = function(){
-        conArena.fillStyle = "rgb(0,200,0)";
-         conArena.fillRect(this.x,this.y,10,10);
+        conArena.fillStyle = this.color;
+         conArena.fillRect(this.x,this.y,this.width,this.height);
         };
     this.clear = function(){
-         conArena.clearRect(this.x,this.y,10,10);
+         conArena.clearRect(this.x-1,this.y-1,this.width+2,this.height+2);
         };
     this.update = function(){
         this.x +=   this.xSpeed ;
+        var tmp = this.collision([player]);
+        if(tmp != null){
+            tmp.explodes();
+        }
     };
 }
-//var myProjectile = new Projectile();
+/////////////////////////////////
+
+/////////////////////////////////
+// Enemy
+var enemies = {
+    init : function(){
+        this.tabEnemies = new Array();
+    },
+    add : function (enemy) {
+        this.tabEnemies.push(enemy);  
+    },
+    remove : function () {  
+      if((this.tabEnemies.length>0) && (this.tabEnemies[0].x >ArenaWidth || this.tabEnemies[0].x<0)) 
+      {
+          this.tabEnemies.shift();
+          this.remove();
+      }
+    },
+    draw : function(){ 
+        this.tabEnemies.map(function(obj){
+            obj.draw();
+        });
+    },
+    clear : function(){
+       this.tabEnemies.map(function(obj){
+            obj.clear();
+        });
+    },
+    update : function(){
+        this.remove();
+        this.tabEnemies.map(function(obj){
+            obj.update();
+        });
+    }
+    
+};
+
+function Enemy(x,y,speed){
+    this.x = x;
+    this.yOrigine = y;
+    this.y = this.yOrigine;
+    this.xSpeed = speed;
+    this.height = 40;
+    this.width = 40;
+    this.img = new Image();
+    this.img.src = "./assets/Enemy/Example/e_f1.png";
+    this.projectileSet = new ProjectileSet();
+    this.fire = function (){
+        var tmp = new Projectile(this.x,this.y,-4,10,10,"rgb(0,200,0)");
+        this.projectileSet.add(tmp);
+    };
+    this.draw = function(){ 
+        conArena.drawImage(this.img, 0,0,this.width,this.height, this.x,this.y,this.width,this.height); 
+        this.projectileSet.draw();
+    };
+    this.clear = function(){
+        conArena.clearRect(this.x,this.y,this.width,this.height);
+        this.projectileSet.clear();
+    };
+    this.update = function(){
+        this.x +=   this.xSpeed ;
+        this.y = this.yOrigine+ ArenaHeight/3 * Math.sin(this.x / 100);
+        if(tics % 50 == 1) this.fire();
+        this.projectileSet.update();
+    };
+}
+/////////////////////////////////
+
 /////////////////////////////////
 // Hero Player
 var player = {
     init : function(){
         this.img = new Image();
         this.img.src = "./assets/Ship/f1.png";
+        this.projectileSet = new ProjectileSet();
     },
     x : 20,
     ySpeed : 10,
     y : 100,
     height : 29,
     width : 64,
+    nbOfLives : 4,
+    timeToBeAlive : 0,
+    fires : function(){
+        var tmp = new Projectile(this.x,this.y,4,10,10,"rgb(0,0,200)");
+        this.projectileSet.add(tmp);
+    },
+    explodes : function(){
+        if(this.timeToBeAlive == 0) {
+            this.nbOfLives--;
+            if(this.nbOfLives>0){
+                this.timeToBeAlive = _timeToBeAlive;
+            }else{
+                //Game Over
+                console.log("GAME OVER");
+            }
+        }
+    },
     clear : function(){
         conArena.clearRect(this.x,this.y,this.width,this.height);
+        this.projectileSet.clear();
     },
     update :  function(){
         var keycode;
+        if(this.timeToBeAlive>0) {
+            this.timeToBeAlive --;
+        }
         for (keycode in keyStatus) {
             if(keyStatus[keycode] == true){
                 if(keycode == keys.UP) {     
@@ -101,15 +252,18 @@ var player = {
                 } 
                 if(keycode == keys.SPACE) { 
                     //shoot
-                    var tmp = new Projectile();
-                    tabProjectile.push(tmp);
+                    this.fires();
                 }             
             }
             keyStatus[keycode] = false;
         }  
+        this.projectileSet.update();
     },
     draw : function(){
-        conArena.drawImage(this.img, 0,0,this.width,this.height, this.x,this.y,this.width,this.height);  
+        if(this.timeToBeAlive == 0) {
+            conArena.drawImage(this.img, 0,0,this.width,this.height, this.x,this.y,this.width,this.height); 
+        }
+        this.projectileSet.draw();
     }
 };
 
@@ -122,10 +276,13 @@ function updateScene() {
 function updateItems() {
     "use strict"; 
     player.update();
-    tabProjectile.map(function(obj){
-        obj.update();
-    });
-    //myProjectile.update();
+    tics++;
+     if(tics % 100 == 1) {
+         var rand = Math.floor(Math.random() * ArenaHeight);
+         console.log(rand);
+        enemies.add(new Enemy(ArenaWidth, rand,-2));
+    }
+    enemies.update();
 }
 function drawScene() {
     "use strict"; 
@@ -134,18 +291,12 @@ function drawScene() {
 function drawItems() {
     "use strict"; 
     player.draw();
-    tabProjectile.map(function(obj){
-        obj.draw();
-    });
-    //myProjectile.draw();
+    enemies.draw();
 }
 function clearItems() {
     "use strict"; 
     player.clear(); 
-    tabProjectile.map(function(obj){
-        obj.clear();
-    });
-    //myProjectile.clear();
+    enemies.clear();
 }
 
 function updateGame() {
@@ -189,6 +340,7 @@ function init() {
     divArena.appendChild(canArena);
  
     player.init();
+    enemies.init();
     
 window.addEventListener("keydown", keyDownHandler, false);
 window.addEventListener("keyup", keyUpHandler, false);
