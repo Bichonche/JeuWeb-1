@@ -200,7 +200,6 @@ function Enemy(x,y,speed){
     this.projectileSet = new ProjectileSet();
     this.explodes = function(){
         this.cptExplosion = 1;
-        //this.exists = false;
     };
     this.collision = function(tabOfObjects){
         var hits = null;
