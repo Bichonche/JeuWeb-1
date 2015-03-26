@@ -103,10 +103,11 @@ function Projectile(x,y,speed,width,height,color){
     this.width = width;
     this.height = height;
     this.color = color;
+    this.exists = true;
     this.collision = function(tabOfObjects){
         var hits = null;
         var index;
-        for(index=0;index<tabOfObjects.length;index++){
+        for(index in tabOfObjects){
             if (this.x < tabOfObjects[index].x + tabOfObjects[index].width &&
                 this.x + this.width > tabOfObjects[index].x &&
                 this.y < tabOfObjects[index].y + tabOfObjects[index].height &&
@@ -119,17 +120,24 @@ function Projectile(x,y,speed,width,height,color){
         return hits;  
     };
     this.draw = function(){
-        conArena.fillStyle = this.color;
-         conArena.fillRect(this.x,this.y,this.width,this.height);
-        };
+        if(this.exists){
+            conArena.fillStyle = this.color;
+            conArena.fillRect(this.x,this.y,this.width,this.height);
+        }
+    };
     this.clear = function(){
-         conArena.clearRect(this.x-1,this.y-1,this.width+2,this.height+2);
-        };
+        if(this.exists){
+            conArena.clearRect(this.x-1,this.y-1,this.width+2,this.height+2);
+        }
+    };
     this.update = function(){
-        this.x +=   this.xSpeed ;
-        var tmp = this.collision([player]);
-        if(tmp != null){
-            tmp.explodes();
+        if(this.exists){
+            this.x +=   this.xSpeed ;
+            var tmp = this.collision([player].concat(enemies.tabEnemies));
+            if(tmp != null){
+                tmp.explodes();
+                this.exists = false;
+            }
         }
     };
 }
@@ -145,11 +153,11 @@ var enemies = {
         this.tabEnemies.push(enemy);  
     },
     remove : function () {  
-      if((this.tabEnemies.length>0) && (this.tabEnemies[0].x >ArenaWidth || this.tabEnemies[0].x<0)) 
-      {
-          this.tabEnemies.shift();
-          this.remove();
-      }
+        this.tabEnemies.map(function(obj,index,array){
+            if(obj.exists == false ||obj.x >ArenaWidth || obj.x<0){
+                  delete array[index];
+            }
+        });
     },
     draw : function(){ 
         this.tabEnemies.map(function(obj){
@@ -162,10 +170,11 @@ var enemies = {
         });
     },
     update : function(){
-        this.remove();
+
         this.tabEnemies.map(function(obj){
             obj.update();
         });
+         this.remove();
     }
     
 };
@@ -175,27 +184,82 @@ function Enemy(x,y,speed){
     this.yOrigine = y;
     this.y = this.yOrigine;
     this.xSpeed = speed;
-    this.height = 40;
+    this.exists = true;
+    this.height = 30;
     this.width = 40;
     this.img = new Image();
-    this.img.src = "./assets/Enemy/Example/e_f1.png";
+    this.img.src = "./assets/Enemy/eSpritesheet_40x30.png";
+    this.cpt = 0;
+
+    this.cptExplosion =  0;//10 images
+    this.imgExplosion = new Image();
+    this.imgExplosionHeight = 128;
+    this.imgExplosionWidth = 128;
+    this.imgExplosion.src = "./assets/Explosion/explosionSpritesheet_1280x128.png";
+
     this.projectileSet = new ProjectileSet();
+    this.explodes = function(){
+        this.cptExplosion = 1;
+        //this.exists = false;
+    };
+    this.collision = function(tabOfObjects){
+        var hits = null;
+        var index;
+        for(index in tabOfObjects){
+            if (this.x < tabOfObjects[index].x + tabOfObjects[index].width &&
+                this.x + this.width > tabOfObjects[index].x &&
+                this.y < tabOfObjects[index].y + tabOfObjects[index].height &&
+                this.height + this.y > tabOfObjects[index].y) {
+                    // collision detected!
+                    hits = tabOfObjects[index];
+                    break;
+            }
+        }
+        return hits;
+    };
     this.fire = function (){
-        var tmp = new Projectile(this.x,this.y,-4,10,10,"rgb(0,200,0)");
+        var tmp = new Projectile(this.x-10,this.y+this.height/2,-4,10,5,"rgb(0,200,0)");
         this.projectileSet.add(tmp);
     };
     this.draw = function(){ 
-        conArena.drawImage(this.img, 0,0,this.width,this.height, this.x,this.y,this.width,this.height); 
+
         this.projectileSet.draw();
+
+        if(this.cptExplosion!=0){
+                conArena.drawImage(this.imgExplosion, this.cptExplosion*this.imgExplosionWidth, 0, this.imgExplosionWidth,this.imgExplosionHeight, this.x,this.y,this.width,this.height);
+        }else{
+            conArena.drawImage(this.img,  0,this.cpt*this.height,this.width,this.height, this.x,this.y,this.width,this.height);
+        }
     };
     this.clear = function(){
-        conArena.clearRect(this.x,this.y,this.width,this.height);
+        if(this.exists){
+            conArena.clearRect(this.x,this.y,this.width,this.height);
+        }
         this.projectileSet.clear();
     };
     this.update = function(){
-        this.x +=   this.xSpeed ;
-        this.y = this.yOrigine+ ArenaHeight/3 * Math.sin(this.x / 100);
-        if(tics % 50 == 1) this.fire();
+       if(this.cptExplosion==0){//is not exploding
+            this.x +=   this.xSpeed ;
+            this.y = this.yOrigine+ ArenaHeight/3 * Math.sin(this.x / 100);
+            var tmp = this.collision([player]);
+                if(tmp != null){
+                    tmp.explodes();
+                    this.exists = false;
+                }
+
+            if(tics % 5 == 1) {
+                    this.cpt = (this.cpt + 1) % 6;
+            }
+            //if(tics % 50 == 1) this.fire();
+       }else{
+            if(tics % 3 == 1) {
+                this.cptExplosion++;
+            }
+            if(this.cptExplosion>10){//end of animation
+                this.cptExplosion=0;
+                this.exists = false;
+            }
+        }
         this.projectileSet.update();
     };
 }
@@ -206,7 +270,13 @@ function Enemy(x,y,speed){
 var player = {
     init : function(){
         this.img = new Image();
-        this.img.src = "./assets/Ship/f1.png";
+        this.img.src = "./assets/Ship/Spritesheet_64x29.png";
+        this.cpt = 0;
+        this.cptExplosion =  10;//10 images
+        this.imgExplosion = new Image();
+        this.imgExplosionHeight = 128;
+        this.imgExplosionWidth = 128;
+        this.imgExplosion.src = "./assets/Explosion/explosionSpritesheet_1280x128.png";
         this.projectileSet = new ProjectileSet();
     },
     x : 20,
@@ -214,10 +284,10 @@ var player = {
     y : 100,
     height : 29,
     width : 64,
-    nbOfLives : 4,
+    nbOfLives : 42,
     timeToBeAlive : 0,
     fires : function(){
-        var tmp = new Projectile(this.x,this.y,4,10,10,"rgb(0,0,200)");
+        var tmp = new Projectile(this.x+this.width,this.y+this.height/2,4,10,3,"rgb(200,0,0)");
         this.projectileSet.add(tmp);
     },
     explodes : function(){
@@ -225,6 +295,7 @@ var player = {
             this.nbOfLives--;
             if(this.nbOfLives>0){
                 this.timeToBeAlive = _timeToBeAlive;
+                this.cptExplosion = 1;
             }else{
                 //Game Over
                 console.log("GAME OVER");
@@ -237,31 +308,43 @@ var player = {
     },
     update :  function(){
         var keycode;
+        if(tics % 10 == 1) {
+                this.cpt = (this.cpt + 1) % 4;
+            }
         if(this.timeToBeAlive>0) {
             this.timeToBeAlive --;
-        }
-        for (keycode in keyStatus) {
-            if(keyStatus[keycode] == true){
-                if(keycode == keys.UP) {     
-                    this.y -= this.ySpeed;  
-                    if(this.y<0) this.y=0;
+        }else{
+            for (keycode in keyStatus) {
+                if(keyStatus[keycode] == true){
+                    if(keycode == keys.UP) {
+                        this.y -= this.ySpeed;
+                        if(this.y<0) this.y=0;
+                    }
+                    if(keycode == keys.DOWN) {
+                        this.y += this.ySpeed;
+                        if(this.y>ArenaHeight-this.height) this.y=ArenaHeight-this.height;
+                    }
+                    if(keycode == keys.SPACE) {
+                        //shoot
+                        this.fires();
+                    }
                 }
-                if(keycode == keys.DOWN) { 
-                    this.y += this.ySpeed;  
-                    if(this.y>ArenaHeight-this.height) this.y=ArenaHeight-this.height;
-                } 
-                if(keycode == keys.SPACE) { 
-                    //shoot
-                    this.fires();
-                }             
+             keyStatus[keycode] = false;
             }
-            keyStatus[keycode] = false;
-        }  
+        }
         this.projectileSet.update();
     },
     draw : function(){
         if(this.timeToBeAlive == 0) {
-            conArena.drawImage(this.img, 0,0,this.width,this.height, this.x,this.y,this.width,this.height); 
+
+            conArena.drawImage(this.img, 0,this.cpt*this.height,this.width,this.height, this.x,this.y,this.width,this.height);
+        }else{
+            //exploding
+            if(this.cptExplosion!=0){
+                conArena.drawImage(this.imgExplosion, this.cptExplosion*this.imgExplosionWidth, 0, this.imgExplosionWidth,this.imgExplosionHeight, this.x,this.y,this.width,this.height);
+               if(tics % 3 == 1) {this.cptExplosion++;}
+                if(this.cptExplosion>10) this.cptExplosion=0;
+            }
         }
         this.projectileSet.draw();
     }
@@ -279,7 +362,7 @@ function updateItems() {
     tics++;
      if(tics % 100 == 1) {
          var rand = Math.floor(Math.random() * ArenaHeight);
-         console.log(rand);
+
         enemies.add(new Enemy(ArenaWidth, rand,-2));
     }
     enemies.update();
