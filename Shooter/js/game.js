@@ -21,7 +21,7 @@ var xBackgroundOffset = 0;
 var xBackgroundSpeed = 1;
 var backgroundWidth = 1782;
 var backgroundHeight = 600;
-
+//une modification
 
 ///////////////////////////////////
 //Keys
