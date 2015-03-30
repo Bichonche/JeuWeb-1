@@ -11,7 +11,9 @@ var _timeToBeAlive = 30;
 //Canvas
 var divArena;
 var canArena;
+var canScore;
 var conArena;
+var conScore;
 var ArenaWidth = 500;
 var ArenaHeight = 300;
 
@@ -61,24 +63,32 @@ function keyUpHandler(event) {
 // une collection de projectiles
 function ProjectileSet(tabTarget){
   this.tabTarget = tabTarget;
+  this.score = 0;
   this.tabProjectiles = new Array();
   this.add = function (projectile) {
     this.tabProjectiles.push(projectile);  
   };
   this.remove = function () {  
-      if((this.tabProjectiles.length>0) && (this.tabProjectiles[0].x >ArenaWidth || this.tabProjectiles[0].x<0)) 
-      {
-          this.tabProjectiles.shift();
-          this.remove();
-      }
+
+       this.tabProjectiles.map(function(obj,index,array){
+            if(obj.exists == false ||obj.x >ArenaWidth || obj.x<0){
+                  delete array[index];
+            }
+        });
+
   };
-    
-    
+
+
  this.update = function(){
         this.remove();
+        var score = 0;
         this.tabProjectiles.map(function(obj){
             obj.update();
+            if(obj.exists == false) {//hit
+                score = score +1;
+            }
         });
+        this.score = this.score + score;
     };
  this.clear = function(){
     this.tabProjectiles.map(function(obj){
@@ -108,7 +118,7 @@ function Projectile(x,y,speed,width,height,color){
         var hits = null;
         var index;
         for(index in tabOfObjects){
-            if (this.x < tabOfObjects[index].x + tabOfObjects[index].width &&
+            if ((tabOfObjects[index].cptExplosion ==0) && this.x < tabOfObjects[index].x + tabOfObjects[index].width &&
                 this.x + this.width > tabOfObjects[index].x &&
                 this.y < tabOfObjects[index].y + tabOfObjects[index].height &&
                 this.height + this.y > tabOfObjects[index].y) {
@@ -283,7 +293,7 @@ var player = {
     y : 100,
     height : 29,
     width : 64,
-    nbOfLives : 42,
+    nbOfLives : 2,
     timeToBeAlive : 0,
     fires : function(){
         var tmp = new Projectile(this.x+this.width,this.y+this.height/2,4,10,3,"rgb(200,0,0)");
@@ -381,6 +391,13 @@ function clearItems() {
     enemies.clear();
 }
 
+function clearScore() {
+    conScore.clearRect(0,0,300,50);
+}
+function drawScore() {
+    conScore.fillText("life : "+player.nbOfLives, 10, 25);
+    conScore.fillText("score : "+player.projectileSet.score, 150,25);
+}
 function updateGame() {
     "use strict"; 
     updateScene();
@@ -389,11 +406,13 @@ function updateGame() {
 function clearGame() {
     "use strict"; 
     clearItems();
+    clearScore();
 }
 
 function drawGame() {
     "use strict"; 
     drawScene();
+    drawScore();
     drawItems();    
 }
 
@@ -420,6 +439,16 @@ function init() {
     canArena.setAttribute("width", ArenaWidth);
     conArena = canArena.getContext("2d");
     divArena.appendChild(canArena);
+
+    canScore = document.createElement("canvas");
+    canScore.setAttribute("id","canScore");
+    canScore.setAttribute("height", ArenaHeight);
+    canScore.setAttribute("width", ArenaWidth);
+    conScore = canScore.getContext("2d");
+    conScore.fillStyle = "rgb(200,0,0)";
+    conScore.font = 'bold 12pt Courier';
+    divArena.appendChild(canScore);
+
  
     player.init();
     enemies.init();
